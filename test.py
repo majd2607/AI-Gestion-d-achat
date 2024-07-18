@@ -8,7 +8,7 @@ def scrape_amazon(url, num_pages):
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
-        "DNT": "1"  # Do Not Track Request Header
+        "DNT": "1"
     }
 
     products = []
@@ -50,7 +50,7 @@ def scrape_ebay(url, num_pages):
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
-        "DNT": "1"  # Do Not Track Request Header
+        "DNT": "1"
     }
 
     products = []
@@ -87,13 +87,13 @@ def scrape_ebay(url, num_pages):
 
     return products
 
-def scrape_aliexpress(url, num_pages):
+def scrape_zalando(url, num_pages):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 OPR/110.0.0.0",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
-        "DNT": "1"  # Do Not Track Request Header
+        "DNT": "1"
     }
 
     products = []
@@ -108,10 +108,10 @@ def scrape_aliexpress(url, num_pages):
 
         soup = BeautifulSoup(response.content, "html.parser")
 
-        for item in soup.select(".list-item"):
-            title = item.select_one(".item-title")
-            price = item.select_one(".price-current")
-            rating = item.select_one(".rating-value")
+        for item in soup.select(".cat_articleCard-1r8"):
+            title = item.select_one(".cat_articleName-1P9")
+            price = item.select_one(".cat_price-3O8")
+            rating = item.select_one(".cat_rating-3H2")
 
             title_text = title.get_text().strip() if title else "No Title"
             price_text = price.get_text().strip() if price else "No Price"
@@ -143,11 +143,11 @@ ebay_categories = {
     "Clothing": "https://www.ebay.com/sch/i.html?_nkw=clothing"
 }
 
-# Liste des URLs de différentes catégories à scraper sur AliExpress
-aliexpress_categories = {
-    "Electronics": "https://www.aliexpress.com/wholesale?catId=0&initiative_id=SB_20210716034236&SearchText=electronics",
-    "Home & Kitchen": "https://www.aliexpress.com/wholesale?catId=0&initiative_id=SB_20210716034236&SearchText=home+and+kitchen",
-    "Clothing": "https://www.aliexpress.com/wholesale?catId=0&initiative_id=SB_20210716034236&SearchText=clothing"
+# Liste des URLs de différentes catégories à scraper sur Zalando
+zalando_categories = {
+    "Electronics": "https://www.zalando.com/electronics",
+    "Home & Kitchen": "https://www.zalando.com/home-and-kitchen",
+    "Clothing": "https://www.zalando.com/clothing"
 }
 
 num_pages = 5  # Nombre de pages à scraper
@@ -167,16 +167,16 @@ for category, url in ebay_categories.items():
     data = scrape_ebay(url, num_pages)
     category_data[f"eBay_{category}"] = data
 
-# Scraper les catégories sur AliExpress
-for category, url in aliexpress_categories.items():
-    print(f"Scraping AliExpress category: {category}")
-    data = scrape_aliexpress(url, num_pages)
-    category_data[f"AliExpress_{category}"] = data
+# Scraper les catégories sur Zalando
+for category, url in zalando_categories.items():
+    print(f"Scraping Zalando category: {category}")
+    data = scrape_zalando(url, num_pages)
+    category_data[f"Zalando_{category}"] = data
 
 # Enregistrement des résultats dans un fichier Excel avec une feuille par catégorie
-with pd.ExcelWriter("amazon_ebay_aliexpress_products55.xlsx") as writer:
+with pd.ExcelWriter("amazon_ebay_zalando_cts.xlsx") as writer:
     for category, data in category_data.items():
         df = pd.DataFrame(data)
         df.to_excel(writer, sheet_name=category, index=False)
 
-print("Scraping complete. Data saved to amazon_ebay_aliexpress_products.xlsx.")
+print("Scraping complete. Data saved to amazon_ebay_zalando_products.xlsx.")
