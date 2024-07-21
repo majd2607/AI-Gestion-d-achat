@@ -3,31 +3,38 @@ from selenium.webdriver.common.by import By
 import pandas as pd
 import time
 
-# Initialiser le driver pour Microsoft Edge
+# Initialize the driver for Microsoft Edge
 driver = webdriver.Edge()
 
-# Ouvrir la page d'accueil d'Amazon
+# Open the Amazon homepage
 driver.get('https://www.amazon.com')
 
-# Attendre que l'utilisateur résolve le CAPTCHA (si nécessaire)
-input("Résolvez le CAPTCHA manuellement, puis appuyez sur Entrée pour continuer...")
+# Wait for the user to solve the CAPTCHA (if necessary)
+input("Resolve the CAPTCHA manually, then press Enter to continue...")
 
-# Attendre un peu pour s'assurer que la page est complètement chargée
+# Wait a bit to ensure the page is fully loaded
 time.sleep(5)
 
-# Trouver les éléments qui contiennent les catégories dans la barre de navigation
-categories = driver.find_elements(By.CSS_SELECTOR, 'div#nav-main a.nav-a')
+# Open the category menu
+menu_button = driver.find_element(By.ID, 'nav-hamburger-menu')
+menu_button.click()
 
-# Extraire les noms des catégories
+# Wait for the menu to load
+time.sleep(2)
+
+# Find elements that contain the product categories
+categories = driver.find_elements(By.CSS_SELECTOR, 'ul.hmenu-visible li a.hmenu-item')
+
+# Extract the names of the categories
 category_names = [category.text for category in categories if category.text]
 
-# Fermer le driver
+# Close the driver
 driver.quit()
 
-# Créer un DataFrame avec les noms des catégories
+# Create a DataFrame with the names of the categories
 df = pd.DataFrame(category_names, columns=['Category'])
 
-# Sauvegarder les catégories dans un fichier Excel
-df.to_excel('amazon_categories.xlsx', index=False)
+# Save the categories to an Excel file
+df.to_excel('amazon_product_categories.xlsx', index=False)
 
-print('Les catégories ont été sauvegardées dans le fichier amazon_categories.xlsx')
+print('The product categories have been saved to amazon_product_categories.xlsx')
