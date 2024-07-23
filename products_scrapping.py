@@ -1,6 +1,19 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+import time
+
+def get_amazon_comments(product_url, headers):
+    response = requests.get(product_url, headers=headers)
+    if response.status_code != 200:
+        print(f"Failed to retrieve product page: {response.status_code}")
+        return "No Comment"
+
+    soup = BeautifulSoup(response.content, "html.parser")
+    comment = soup.select_one(".review-text-content span")
+    comment_text = comment.get_text().strip() if comment else "No Comment"
+
+    return comment_text
 
 def scrape_amazon(url, num_pages):
     headers = {
@@ -27,22 +40,40 @@ def scrape_amazon(url, num_pages):
             title = item.select_one("h2 a span")
             price = item.select_one(".a-price > span.a-offscreen")
             rating = item.select_one(".a-icon-alt")
+            product_link = item.select_one("h2 a")
+            product_url = f"https://www.amazon.com{product_link['href']}" if product_link else "No URL"
 
             title_text = title.get_text().strip() if title else "No Title"
             price_text = price.get_text().strip() if price else "No Price"
             rating_text = rating.get_text().strip() if rating else "No Rating"
 
             if title_text != "No Title":
+                comment_text = get_amazon_comments(product_url, headers)
                 product_info = {
                     "Title": title_text,
                     "Price": price_text,
-                    "Rating": rating_text
+                    "Rating": rating_text,
+                    "Comment": comment_text
                 }
                 products.append(product_info)
             else:
                 print(f"Skipping item with missing title on page {page}")
 
+            time.sleep(1)  # Delai pour éviter d'être bloqué
+
     return products
+
+def get_ebay_comments(product_url, headers):
+    response = requests.get(product_url, headers=headers)
+    if response.status_code != 200:
+        print(f"Failed to retrieve product page: {response.status_code}")
+        return "No Comment"
+
+    soup = BeautifulSoup(response.content, "html.parser")
+    comment = soup.select_one(".review-section .review-content")
+    comment_text = comment.get_text().strip() if comment else "No Comment"
+
+    return comment_text
 
 def scrape_ebay(url, num_pages):
     headers = {
@@ -70,22 +101,40 @@ def scrape_ebay(url, num_pages):
             price = item.select_one(".s-item__price")
             rating = item.select_one(".s-item__reviews .clipped")
             rating_alt = item.select_one(".b-starrating__star .clipped")
+            product_link = item.select_one(".s-item__link")
 
             title_text = title.get_text().strip() if title else "No Title"
             price_text = price.get_text().strip() if price else "No Price"
             rating_text = rating.get_text().strip() if rating else (rating_alt.get_text().strip() if rating_alt else "No Rating")
+            product_url = product_link["href"] if product_link else "No URL"
 
             if title_text != "No Title":
+                comment_text = get_ebay_comments(product_url, headers)
                 product_info = {
                     "Title": title_text,
                     "Price": price_text,
-                    "Rating": rating_text
+                    "Rating": rating_text,
+                    "Comment": comment_text
                 }
                 products.append(product_info)
             else:
                 print(f"Skipping item with missing title on page {page}")
 
+            time.sleep(1)  # Delai pour éviter d'être bloqué
+
     return products
+
+def get_zalando_comments(product_url, headers):
+    response = requests.get(product_url, headers=headers)
+    if response.status_code != 200:
+        print(f"Failed to retrieve product page: {response.status_code}")
+        return "No Comment"
+
+    soup = BeautifulSoup(response.content, "html.parser")
+    comment = soup.select_one(".comment .text")
+    comment_text = comment.get_text().strip() if comment else "No Comment"
+
+    return comment_text
 
 def scrape_zalando(url, num_pages):
     headers = {
@@ -112,20 +161,26 @@ def scrape_zalando(url, num_pages):
             title = item.select_one(".cat_articleName-1P9")
             price = item.select_one(".cat_price-3O8")
             rating = item.select_one(".cat_rating-3H2")
+            product_link = item.select_one(".cat_articleLink-3cB")
 
             title_text = title.get_text().strip() if title else "No Title"
             price_text = price.get_text().strip() if price else "No Price"
             rating_text = rating.get_text().strip() if rating else "No Rating"
+            product_url = f"https://www.zalando.com{product_link['href']}" if product_link else "No URL"
 
             if title_text != "No Title":
+                comment_text = get_zalando_comments(product_url, headers)
                 product_info = {
                     "Title": title_text,
                     "Price": price_text,
-                    "Rating": rating_text
+                    "Rating": rating_text,
+                    "Comment": comment_text
                 }
                 products.append(product_info)
             else:
                 print(f"Skipping item with missing title on page {page}")
+
+            time.sleep(1)  # Delai pour éviter d'être bloqué
 
     return products
 
@@ -176,7 +231,7 @@ for category, url in zalando_categories.items():
 # Enregistrement des résultats dans un fichier Excel avec une feuille par catégorie
 with pd.ExcelWriter("amazon_ebay_zalando_cts.xlsx") as writer:
     for category, data in category_data.items():
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data)     
         df.to_excel(writer, sheet_name=category, index=False)
 
-print("Scraping complete. Data saved to amazon_ebay_zalando_products.xlsx.")
+print("Scraping complete. Data saved to amazon_ebay_zalando_cts.xlsx.")
