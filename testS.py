@@ -1,62 +1,71 @@
 from selenium import webdriver
+from selenium.webdriver.edge.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, ElementNotInteractableException, NoSuchElementException
+from selenium.webdriver.edge.options import Options
+from webdriver_manager.microsoft import EdgeDriverManager
 import pandas as pd
 import time
 
-# Initialize the driver for Microsoft Edge
-driver = webdriver.Edge()
+def scrape_jumia(url, num_pages):
+    options = Options()
+    options.use_chromium = True
+    driver = webdriver.Edge(service=Service(EdgeDriverManager().install()), options=options)
 
-try:
-    # Open the AliExpress homepage
-    print("Opening AliExpress homepage...")
-    driver.get('https://www.aliexpress.com')
+    products = []
 
-    # Wait for the page to load and the search box to be visible
-    wait = WebDriverWait(driver, 30)  # Increase wait time to 30 seconds
-    search_box = wait.until(EC.visibility_of_element_located((By.NAME, 'SearchText')))
-    print("Search box found")
+    for page in range(1, num_pages + 1):
+        page_url = f"{url}?page={page}"
+        driver.get(page_url)
+        time.sleep(2)  # Attendre que la page se charge
 
-    # Perform a search for a specific product category (e.g., "laptops")
-    search_box.send_keys('laptops')
-    search_box.submit()
-    print("Search initiated")
+        items = driver.find_elements(By.CSS_SELECTOR, ".c4keK")
+        for item in items:
+            title = item.find_element(By.CSS_SELECTOR, ".name")
+            price = item.find_element(By.CSS_SELECTOR, ".price")
+            rating = item.find_element(By.CSS_SELECTOR, ".stars")
+            product_link = item.find_element(By.CSS_SELECTOR, ".core")
 
-    # Wait for the search results to load
-    time.sleep(5)
+            title_text = title.text.strip() if title else "No Title"
+            price_text = price.text.strip() if price else "No Price"
+            rating_text = rating.text.strip() if rating else "No Rating"
+            product_url = f"https://www.jumia.com.tn{product_link.get_attribute('href')}" if product_link else "No URL"
 
-    # Find elements that contain the product details
-    products = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.JIIxO')))
-    print(f"Found {len(products)} products")
+            if title_text != "No Title":
+                product_info = {
+                    "Title": title_text,
+                    "Price": price_text,
+                    "Rating": rating_text,
+                    "URL": product_url
+                }
+                products.append(product_info)
+            else:
+                print(f"Skipping item with missing title on page {page}")
 
-    # Extract the product details
-    product_list = []
-    for product in products:
-        try:
-            name = product.find_element(By.CSS_SELECTOR, 'a._3t7zg').text
-            price = product.find_element(By.CSS_SELECTOR, 'span._30jeq3').text
-            link = product.find_element(By.CSS_SELECTOR, 'a._3t7zg').get_attribute('href')
-            product_list.append([name, price, link])
-        except NoSuchElementException as e:
-            print(f"Error extracting product details: {e}")
-            continue
-
-    # Create a DataFrame with the product details
-    df = pd.DataFrame(product_list, columns=['Name', 'Price', 'Link'])
-
-    # Save the product details to an Excel file
-    df.to_excel('aliexpress_products.xlsx', index=False)
-    print('The product details have been saved to aliexpress_products.xlsx')
-
-except TimeoutException as e:
-    print(f"TimeoutException occurred: {e}")
-except ElementNotInteractableException as e:
-    print(f"ElementNotInteractableException occurred: {e}")
-except Exception as e:
-    print(f"An unexpected error occurred: {e}")
-
-finally:
-    # Close the driver
     driver.quit()
+    return products
+
+# Liste des URLs de différentes catégories à scraper sur Jumia
+jumia_categories = {
+    "Electronics": "https://www.jumia.com.tn/electronique/",
+    "Home & Kitchen": "https://www.jumia.com.tn/cuisine-cuisson/",
+    "Fashion": "https://www.jumia.com.tn/fashion-mode/"
+}
+
+num_pages = 5  # Nombre de pages à scraper
+
+# Dictionnaire pour stocker les données des différentes catégories
+category_data = {}
+
+# Scraper les catégories sur Jumia
+for category, url in jumia_categories.items():
+    print(f"Scraping Jumia category: {category}")
+    data = scrape_jumia(url, num_pages)
+    category_data[f"Jumia_{category}"] = data
+
+# Enregistrement des résultats dans un fichier Excel avec une feuille par catégorie
+with pd.ExcelWriter("jumia_data.xlsx") as writer:
+    for category, data in category_data.items():
+        df = pd.DataFrame(data)
+        df.to_excel(writer, sheet_name=category, index=False)
+
+print("Scraping complete. Data saved to jumia_data.xlsx.")
