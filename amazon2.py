@@ -9,9 +9,9 @@ from sklearn.preprocessing import MinMaxScaler
 
 nltk.download('vader_lexicon')
 
-def scrape_amazon(url, num_pages, category, provider, proxies=None):
+def scrape_amazon(url, category, provider, proxies=None):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, comme Gecko) Chrome/124.0.0.0 Safari/537.36 OPR/110.0.0.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 OPR/110.0.0.0",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
@@ -19,8 +19,9 @@ def scrape_amazon(url, num_pages, category, provider, proxies=None):
     }
 
     products = []
+    page = 1
 
-    for page in range(1, num_pages + 1):
+    while len(products) < 10:
         page_url = f"{url}&page={page}"
         for attempt in range(5):
             try:
@@ -28,26 +29,26 @@ def scrape_amazon(url, num_pages, category, provider, proxies=None):
                 if response.status_code == 200:
                     break
                 print(f"Failed to retrieve content from page {page}: {response.status_code}, attempt {attempt + 1}")
-                time.sleep(random.uniform(30, 60))  # Augmentation du temps d'attente
+                time.sleep(random.uniform(30, 60))
             except requests.RequestException as e:
                 print(f"Request failed: {e}, attempt {attempt + 1}")
-                time.sleep(random.uniform(30, 60))  # Augmentation du temps d'attente
+                time.sleep(random.uniform(30, 60))
         else:
             print(f"Failed to retrieve content from page {page} after 5 attempts.")
             continue
 
         soup = BeautifulSoup(response.content, "html.parser")
-
         items = soup.select(".s-main-slot .s-result-item")
         if not items:
             print(f"No items found on page {page}")
-            continue
+            break
 
         for item in items:
             title = item.select_one("h2 a span")
             price = item.select_one(".a-price > span.a-offscreen")
             rating = item.select_one(".a-icon-alt")
             link = item.select_one("h2 a")["href"] if item.select_one("h2 a") else None
+            image = item.select_one(".s-image")["src"] if item.select_one(".s-image") else None
 
             title_text = title.get_text().strip() if title else "No Title"
             price_text = price.get_text().strip().replace("$", "").replace(",", "") if price else "No Price"
@@ -81,15 +82,17 @@ def scrape_amazon(url, num_pages, category, provider, proxies=None):
                     "Price": price_value,
                     "Rating": rating_value,
                     "Shipping": shipping_text,
+                    "Image": image,
                     "Comments": satisfaction_rating,
                     "URL": product_url,
                     "Provider": provider
                 }
                 products.append(product_info)
-            else:
-                print(f"Skipping item with missing title on page {page}")
+            if len(products) >= 10:
+                break
 
-        time.sleep(random.uniform(30, 60))  # Augmentation du temps d'attente
+        page += 1
+        time.sleep(random.uniform(30, 60))
 
     return products
 
@@ -100,24 +103,20 @@ def scrape_shipping(product_url, headers, proxies=None):
             if response.status_code == 200:
                 break
             print(f"Failed to retrieve shipping info from product page: {response.status_code}, attempt {attempt + 1}")
-            time.sleep(random.uniform(10, 20))  # Augmentation du temps d'attente
+            time.sleep(random.uniform(10, 20))
         except requests.RequestException as e:
             print(f"Request failed: {e}, attempt {attempt + 1}")
-            time.sleep(random.uniform(10, 20))  # Augmentation du temps d'attente
+            time.sleep(random.uniform(10, 20))
     else:
         return "No Shipping Info"
 
     soup = BeautifulSoup(response.content, "html.parser")
-
-    shipping_cost = soup.select_one("#exports_desktop_qualifiedBuybox_tlc_feature_div .a-color-secondary")
-    if not shipping_cost:
-        shipping_cost = soup.select_one("#ddmDeliveryMessage .a-color-base")
-    if not shipping_cost:
-        shipping_cost = soup.select_one(".a-row.a-spacing-mini .a-size-base")
-    if not shipping_cost:
-        shipping_cost = soup.select_one("#deliveryMessageMirId .a-color-success")
-
-    return shipping_cost.get_text().strip() if shipping_cost else "No Shipping Info"
+    shipping_cost = soup.select_one("span.a-size-base.a-color-secondary")
+    if shipping_cost:
+        shipping_text = shipping_cost.get_text().strip()
+        if "$" in shipping_text:
+            return shipping_text.split('$')[-1].split()[0].replace(",", "")
+    return "No Shipping Info"
 
 def extract_brand(title):
     words = title.split()
@@ -132,15 +131,14 @@ def analyze_reviews(product_url, headers, proxies=None):
             if response.status_code == 200:
                 break
             print(f"Failed to retrieve reviews from product page: {response.status_code}, attempt {attempt + 1}")
-            time.sleep(random.uniform(10, 20))  # Augmentation du temps d'attente
+            time.sleep(random.uniform(10, 20))
         except requests.RequestException as e:
             print(f"Request failed: {e}, attempt {attempt + 1}")
-            time.sleep(random.uniform(10, 20))  # Augmentation du temps d'attente
+            time.sleep(random.uniform(10, 20))
     else:
         return "No Reviews"
 
     soup = BeautifulSoup(response.content, "html.parser")
-
     reviews = soup.select(".review-text-content span")
     if not reviews:
         return "No Reviews"
@@ -158,41 +156,41 @@ def analyze_reviews(product_url, headers, proxies=None):
     satisfaction_rating = (positive_reviews / total_reviews) if total_reviews > 0 else "No Reviews"
     return satisfaction_rating
 
-def calculate_global_rating(row, price_weight=0.2, rating_weight=0.4, comment_weight=0.4):
-    price_score = 1 - (row["Price"] / df["Price"].max())  # Assuming lower price is better
-    rating_score = row["Rating"] / 5.0  # Assuming max rating is 5
+def calculate_global_rating(row, price_weight=0.2, rating_weight=0.3, comment_weight=0.3, shipping_weight=0.2):
+    price_score = 1 - (row["Price"] / df["Price"].max())
+    rating_score = row["Rating"] / 5.0
     comment_score = row["Comments"]
+    try:
+        shipping_cost = float(row["Shipping"])
+    except ValueError:
+        shipping_cost = 0.0
+    shipping_score = 1 - (shipping_cost / df["Shipping"].apply(lambda x: float(x) if x != "No Shipping Info" else 0.0).max())
 
-    global_rating = (price_weight * price_score) + (rating_weight * rating_score) + (comment_weight * comment_score)
+    global_rating = (price_weight * price_score) + (rating_weight * rating_score) + (comment_weight * comment_score) + (shipping_weight * shipping_score)
     return global_rating
 
-# Liste des URLs de différentes catégories à scraper sur Amazon
 amazon_categories = {
     "Smartphones": "https://www.amazon.com/s?k=smartphones&crid=3BXT0JJE3IBFV&sprefix=smartph%2Caps%2C216&ref=nb_sb_ss_pltr-xclick_2_7",
     "Computers & Tablets": "https://www.amazon.com/s?i=specialty-aps&bbn=16225007011&rh=n%3A16225007011%2Cn%3A13896617011&ref=nav_em__nav_desktop_sa_intl_computers_tablets_0_2_6_4",
     "Computer Accessories & Peripherals": "https://www.amazon.com/s?i=specialty-aps&bbn=16225007011&rh=n%3A16225007011%2Cn%3A172456&ref=nav_em__nav_desktop_sa_intl_computer_accessories_and_peripherals_0_2_6_2"
 }
 
-num_pages = 5
-
 all_products = []
 
 for category, url in amazon_categories.items():
     print(f"Scraping Amazon category: {category}")
-    data = scrape_amazon(url, num_pages, category, "Amazon")
+    data = scrape_amazon(url, category, "Amazon")
     all_products.extend(data)
 
 df = pd.DataFrame(all_products)
 
-# Normalisation de la colonne Comments pour qu'elle soit entre 0 et 1
 df["Comments"] = pd.to_numeric(df["Comments"], errors='coerce').fillna(0)
 scaler = MinMaxScaler()
 df["Comments"] = scaler.fit_transform(df[["Comments"]])
 
-# Calcul du Global Rating
 df["Global Rating"] = df.apply(calculate_global_rating, axis=1)
 
-df = df[["Category", "Title", "Brand", "Price", "Rating", "Shipping", "Comments", "Global Rating", "URL", "Provider"]]
+df = df[["Category", "Title", "Brand", "Price", "Rating", "Shipping", "Image", "Comments", "Global Rating", "URL", "Provider"]]
 
-df.to_excel("as.xlsx", index=False)
+df.to_excel("aaucts.xlsx", index=False)
 print("Data saved to amazon_products.xlsx")
