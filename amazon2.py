@@ -11,7 +11,7 @@ nltk.download('vader_lexicon')
 
 def scrape_amazon(url, category, provider, proxies=None):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 OPR/110.0.0.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
@@ -23,6 +23,8 @@ def scrape_amazon(url, category, provider, proxies=None):
 
     while len(products) < 10:
         page_url = f"{url}&page={page}"
+        print(f"Scraping page: {page_url}")
+        
         for attempt in range(5):
             try:
                 response = requests.get(page_url, headers=headers, proxies=proxies)
@@ -35,10 +37,11 @@ def scrape_amazon(url, category, provider, proxies=None):
                 time.sleep(random.uniform(30, 60))
         else:
             print(f"Failed to retrieve content from page {page} after 5 attempts.")
-            continue
+            break
 
         soup = BeautifulSoup(response.content, "html.parser")
         items = soup.select(".s-main-slot .s-result-item")
+
         if not items:
             print(f"No items found on page {page}")
             break
@@ -170,27 +173,37 @@ def calculate_global_rating(row, price_weight=0.2, rating_weight=0.3, comment_we
     return global_rating
 
 amazon_categories = {
-    "Smartphones": "https://www.amazon.com/s?k=smartphones&crid=3BXT0JJE3IBFV&sprefix=smartph%2Caps%2C216&ref=nb_sb_ss_pltr-xclick_2_7",
+    "Car & Vehicle Electronics": "https://www.amazon.com/s?i=specialty-aps&bbn=16225009011&rh=n%3A%2116225009011%2Cn%3A3248684011&ref=nav_em__nav_desktop_sa_intl_car_and_vehicle_electronics_0_2_5_4",
+    "Cell Phones & Accessories": "https://www.amazon.com/s?i=specialty-aps&bbn=16225009011&rh=n%3A%2116225009011%2Cn%3A2811119011&ref=nav_em__nav_desktop_sa_intl_cell_phones_and_accessories_0_2_5_5",
+    "Television & Video": "https://www.amazon.com/s?i=specialty-aps&bbn=16225009011&rh=n%3A%2116225009011%2Cn%3A1266092011&ref=nav_em__nav_desktop_sa_intl_television_and_video_0_2_5_14",
     "Computers & Tablets": "https://www.amazon.com/s?i=specialty-aps&bbn=16225007011&rh=n%3A16225007011%2Cn%3A13896617011&ref=nav_em__nav_desktop_sa_intl_computers_tablets_0_2_6_4",
-    "Computer Accessories & Peripherals": "https://www.amazon.com/s?i=specialty-aps&bbn=16225007011&rh=n%3A16225007011%2Cn%3A172456&ref=nav_em__nav_desktop_sa_intl_computer_accessories_and_peripherals_0_2_6_2"
+    "Laptop Accessories": "https://www.amazon.com/s?i=specialty-aps&bbn=16225007011&rh=n%3A16225007011%2Cn%3A3011391011&ref=nav_em__nav_desktop_sa_intl_laptop_accessories_0_2_6_7",
+    "Computer Components": "https://www.amazon.com/s?i=specialty-aps&bbn=16225007011&rh=n%3A16225007011%2Cn%3A193870011&ref=nav_em__nav_desktop_sa_intl_computer_components_0_2_6_3",
+    "Computer Accessories & Peripherals": "https://www.amazon.com/s?i=specialty-aps&bbn=16225007011&rh=n%3A16225007011%2Cn%3A172456&ref=nav_em__nav_desktop_sa_intl_computer_accessories_and_peripherals_0_2_6_2",
+    "Computer Networking": "https://www.amazon.com/s?i=specialty-aps&bbn=16225007011&rh=n%3A16225007011%2Cn%3A172504&ref=nav_em__nav_desktop_sa_intl_networking_products_0_2_6_9",
+    "Tablet Accessories": "https://www.amazon.com/s?i=specialty-aps&bbn=16225007011&rh=n%3A16225007011%2Cn%3A2348628011&ref=nav_em__nav_desktop_sa_intl_tablet_accessories_0_2_6_14",
+    "Car Electronics & Accessories": "https://www.amazon.com/s?i=specialty-aps&bbn=2562090011&rh=n%3A2562090011%2Cn%3A%2115690151%2Cn%3A2230642011&ref=nav_em__nav_desktop_sa_intl_car_electronics_accessories_0_2_9_3",
+    "Automotive Exterior Accessories": "https://www.amazon.com/s?i=specialty-aps&bbn=2562090011&rh=n%3A2562090011%2Cn%3A%2115690151%2Cn%3A15857511&ref=nav_em__nav_desktop_sa_intl_exterior_accessories__0_2_9_4",
+    "Interior Accessories": "https://www.amazon.com/s?i=specialty-aps&bbn=2562090011&rh=n%3A2562090011%2Cn%3A%2115690151%2Cn%3A15857501&ref=nav_em__nav_desktop_sa_intl_interior_accessories_0_2_9_5",
+    "Car Care": "https://www.amazon.com/s?i=specialty-aps&bbn=2562090011&rh=n%3A2562090011%2Cn%3A%2115690151%2Cn%3A15718271&ref=nav_em__nav_desktop_sa_intl_car_care_0_2_9_2",
+    "Learning & Education": "https://www.amazon.com/s?i=specialty-aps&bbn=16225015011&rh=n%3A%2116225015011%2Cn%3A166269011&ref=nav_em__nav_desktop_sa_intl_learning_education_0_2_25_13",
+    "Furniture": "https://www.amazon.com/s?i=specialty-aps&bbn=16225011011&rh=n%3A%2116225011011%2Cn%3A1063306&ref=nav_em__nav_desktop_sa_intl_furniture_0_2_17_6",
+    "Kitchen & Dining": "https://www.amazon.com/s?i=specialty-aps&bbn=16225011011&rh=n%3A%2116225011011%2Cn%3A284507&ref=nav_em__nav_desktop_sa_intl_kitchen_and_dining_0_2_17_3",
+    "Lighting & Ceiling Fans": "https://www.amazon.com/s?i=specialty-aps&bbn=16225011011&rh=n%3A%2116225011011%2Cn%3A16510975011&ref=nav_em__nav_desktop_sa_intl_lighting_and_ceiling_fans_0_2_17_9",
+    "Wall Art": "https://www.amazon.com/s?i=specialty-aps&bbn=16225011011&rh=n%3A%2116225011011%2Cn%3A3736081&ref=nav_em__nav_desktop_sa_intl_wall_art_0_2_17_8",
+    "Kitchen & Bath Fixtures": "https://www.amazon.com/s?i=specialty-aps&bbn=256643011&rh=n%3A256643011%2Cn%3A%21468240%2Cn%3A3754161&ref=nav_em__nav_desktop_sa_intl_kitchen_bath_fixtures_0_2_24_7",
+    "Light Bulbs": "https://www.amazon.com/s?i=specialty-aps&bbn=256643011&rh=n%3A256643011%2Cn%3A%21468240%2Cn%3A322525011&ref=nav_em__nav_desktop_sa_intl_light_bulbs_0_2_24_8"
 }
 
 all_products = []
 
 for category, url in amazon_categories.items():
-    print(f"Scraping Amazon category: {category}")
-    data = scrape_amazon(url, category, "Amazon")
-    all_products.extend(data)
+    print(f"Scraping category: {category}")
+    products = scrape_amazon(url, category, provider="Amazon")
+    all_products.extend(products)
 
+# Create DataFrame and export to Excel
 df = pd.DataFrame(all_products)
+df.to_excel("amazon_products.xlsx", index=False)
 
-df["Comments"] = pd.to_numeric(df["Comments"], errors='coerce').fillna(0)
-scaler = MinMaxScaler()
-df["Comments"] = scaler.fit_transform(df[["Comments"]])
-
-df["Global Rating"] = df.apply(calculate_global_rating, axis=1)
-
-df = df[["Category", "Title", "Brand", "Price", "Rating", "Shipping", "Image", "Comments", "Global Rating", "URL", "Provider"]]
-
-df.to_excel("aaucts.xlsx", index=False)
-print("Data saved to amazon_products.xlsx")
+print("Scraping completed and data saved to amazon_products.xlsx")
